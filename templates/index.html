@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Telegram Drive</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
+    <style>
+        #status.error { color: #d93025; }
+        .tab-button.active { color: #2563eb; border-bottom-color: #2563eb; } /* blue-600 */
+        #profile-pic:not([src]) { background-color: #e5e7eb; display: flex; align-items: center; justify-content: center; }
+        #profile-pic:not([src])::after { content: '?'; font-size: 1.5rem; color: #6b7280; }
+    </style>
+</head>
+<body class="bg-gray-100 font-sans">
+
+    <div class="max-w-7xl mx-auto p-4 sm:p-6 min-h-screen">
+        <div id="loading" class="text-center py-20"><h1 class="text-3xl font-semibold text-gray-800">My Telegram Drive</h1><p class="text-lg text-gray-600 mt-2">Loading...</p></div>
+
+        <div id="login-section" class="hidden max-w-md mx-auto mt-20 bg-white p-8 rounded-lg shadow-md">
+            <h1 class="text-3xl font-semibold text-center text-gray-800 mb-6">Login</h1>
+            <div id="phone-step"><div class="mb-4"><label for="phone" class="block mb-2 font-medium text-gray-700">Phone Number (with +countrycode)</label><input type="text" id="phone" placeholder="+15551234567" class="w-full p-3 border border-gray-300 rounded-lg"></div><button onclick="sendCode()" class="w-full p-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700">Send Code</button></div>
+            <div id="code-step" class="hidden"><h3 class="text-xl font-semibold text-center text-gray-800 mb-4">Enter Code</h3><div class="mb-4"><label for="code" class="block mb-2 font-medium text-gray-700">Code from Telegram</label><input type="text" id="code" class="w-full p-3 border border-gray-300 rounded-lg"></div><div class="mb-4 hidden" id="password-step"><label for="password" class="block mb-2 font-medium text-gray-700">2FA Password</label><input type="password" id="password" class="w-full p-3 border border-gray-300 rounded-lg"></div><button onclick="login()" class="w-full p-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700">Login</button></div>
+        </div>
+
+        <div id="files-section" class="hidden bg-white p-6 rounded-lg shadow-md">
+            <div class="mb-6 relative">
+                 <input type="text" id="search-input" placeholder="Search files by name..." class="w-full p-3 pl-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" onkeydown="handleSearchEnter(event)">
+                 <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><i data-feather="search" class="w-5 h-5 text-gray-400"></i></div>
+                 <button onclick="performSearch()" title="Search" class="absolute inset-y-0 right-0 px-4 flex items-center bg-blue-600 text-white rounded-r-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"><i data-feather="arrow-right" class="w-5 h-5"></i></button>
+            </div>
+
+            <div class="flex justify-between items-center mb-6">
+                <h1 class="text-3xl font-semibold text-gray-800">My Telegram Drive</h1>
+                <div class="flex items-center space-x-3 sm:space-x-4">
+                    <div id="profile-area" class="flex items-center space-x-3 hidden"><img id="profile-pic" src="" alt=" " class="w-10 h-10 rounded-full bg-gray-200 object-cover border border-gray-300"><span id="profile-name" class="font-semibold text-gray-700 hidden sm:block"></span></div>
+                    <label class="flex items-center px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition cursor-pointer"><i data-feather="upload" class="mr-0 sm:mr-2 w-4 h-4"></i><span class="hidden sm:inline">Upload</span><input type="file" id="file-input" class="hidden" onchange="uploadFile()"></label>
+                    <button onclick="getFiles()" title="Refresh File List" class="flex items-center px-3 sm:px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition"><i data-feather="refresh-cw" class="w-4 h-4"></i></button>
+                    <button onclick="logout()" title="Logout" class="flex items-center px-3 sm:px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition"><i data-feather="log-out" class="w-4 h-4"></i></button>
+                </div>
+            </div>
+
+            <div id="status" class="text-center my-4 font-medium"></div>
+
+            <div class="flex flex-wrap border-b-2 border-gray-200 mb-6">
+                <button class="tab-button active py-2 px-4 font-semibold text-gray-600 border-b-3 border-transparent whitespace-nowrap" onclick="openTab('images')">Images</button>
+                <button class="tab-button py-2 px-4 font-semibold text-gray-600 border-b-3 border-transparent whitespace-nowrap" onclick="openTab('video')">Video</button>
+                <button class="tab-button py-2 px-4 font-semibold text-gray-600 border-b-3 border-transparent whitespace-nowrap" onclick="openTab('audio')">Audio</button>
+                <button class="tab-button py-2 px-4 font-semibold text-gray-600 border-b-3 border-transparent whitespace-nowrap" onclick="openTab('documents')">Documents</button>
+                <button class="tab-button py-2 px-4 font-semibold text-gray-600 border-b-3 border-transparent whitespace-nowrap" onclick="openTab('compressed')">Compressed</button>
+                <button class="tab-button py-2 px-4 font-semibold text-gray-600 border-b-3 border-transparent whitespace-nowrap" onclick="openTab('other')">Other</button>
+            </div>
+
+            <div id="images" class="tab-content"><div id="file-list-images" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5"></div></div>
+            <div id="video" class="tab-content hidden"><div id="file-list-video" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5"></div></div>
+            <div id="audio" class="tab-content hidden"><div id="file-list-audio" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5"></div></div>
+            <div id="documents" class="tab-content hidden"><div id="file-list-documents" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5"></div></div>
+            <div id="compressed" class="tab-content hidden"><div id="file-list-compressed" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5"></div></div>
+            <div id="other" class="tab-content hidden"><div id="file-list-other" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5"></div></div>
+        </div>
+    </div>
+
+    <script>
+        const loadingDiv = document.getElementById('loading');
+        const loginSection = document.getElementById('login-section');
+        const filesSection = document.getElementById('files-section');
+        const phoneStep = document.getElementById('phone-step');
+        const codeStep = document.getElementById('code-step');
+        const passwordStep = document.getElementById('password-step');
+        const statusDiv = document.getElementById('status');
+        const profileArea = document.getElementById('profile-area');
+        const profilePic = document.getElementById('profile-pic');
+        const profileName = document.getElementById('profile-name');
+
+        const fileListImages = document.getElementById('file-list-images');
+        const fileListDocuments = document.getElementById('file-list-documents');
+        const fileListAudio = document.getElementById('file-list-audio');
+        const fileListVideo = document.getElementById('file-list-video');
+        const fileListCompressed = document.getElementById('file-list-compressed');
+        const fileListOther = document.getElementById('file-list-other');
+
+        /**
+         * Displays a status message to the user.
+         * @param {string} message - The message to display.
+         * @param {boolean} isError - Whether the message is an error.
+         */
+        function showStatus(message, isError = false) {
+            statusDiv.textContent = message;
+            statusDiv.className = 'text-center my-4 font-medium'; // Reset classes
+            if (isError) {
+                statusDiv.classList.add('error'); // Adds the red color
+            }
+        }
+
+        /**
+         * A generic wrapper for fetch() to handle API calls, JSON parsing, and errors.
+         * @param {string} endpoint - The API endpoint to call (e.g., '/api/files').
+         * @param {string} method - HTTP method (e.g., 'GET', 'POST').
+         * @param {object} [body] - The JSON body for POST requests.
+         * @returns {Promise<object|null>} - The JSON response or null on error.
+         */
+        async function apiCall(endpoint, method = 'GET', body = null) {
+            const options = {
+                method: method,
+                headers: {}
+            };
+            if (body) {
+                options.headers['Content-Type'] = 'application/json';
+                options.body = JSON.stringify(body);
+            }
+
+            try {
+                const response = await fetch(endpoint, options);
+                if (!response.ok) {
+                    // Try to parse error message from server, otherwise use status text
+                    let errorData;
+                    try {
+                        errorData = await response.json();
+                    } catch (e) {
+                        errorData = { message: response.statusText };
+                    }
+                    
+                    if (response.status === 401 && errorData.error === 'Not logged in') {
+                        // This is a special case we handle in getFiles()
+                        return { error: "Not logged in" };
+                    }
+                    
+                    showStatus(`Error: ${errorData.message || 'Unknown error'}`, true);
+                    return null;
+                }
+                // Handle non-JSON responses for specific endpoints if needed
+                if (response.headers.get("content-type")?.includes("application/json")) {
+                    return await response.json();
+                }
+                return { success: true }; // For non-JSON success responses
+
+            } catch (error) {
+                console.error('API Call Failed:', error);
+                showStatus(`Network error: ${error.message}`, true);
+                return null;
+            }
+        }
+        
+        /**
+         * Fetches user's profile info and updates the UI.
+         */
+        async function loadProfileInfo() {
+            const data = await apiCall('/api/me');
+            if (data && !data.error) {
+                profileName.textContent = data.first_name || data.username;
+                if (data.photo) {
+                    profilePic.src = `data:image/jpeg;base64,${data.photo}`;
+                } else {
+                    profilePic.removeAttribute('src'); // Use CSS fallback
+                }
+                profileArea.classList.remove('hidden');
+                profileName.classList.remove('hidden');
+            }
+        }
+
+        /**
+         * Sends a verification code to the user's phone.
+         */
+        async function sendCode() {
+            const phone = document.getElementById('phone').value;
+            if (!phone) {
+                showStatus('Please enter a phone number.', true);
+                return;
+            }
+            showStatus('Sending code...');
+            const data = await apiCall('/api/send_code', 'POST', { phone: phone });
+            if (data && data.success) {
+                showStatus('Code sent! Check your Telegram messages.');
+                phoneStep.style.display = 'none';
+                codeStep.classList.remove('hidden');
+            }
+        }
+
+        /**
+         * Logs the user in with the code and (optional) 2FA password.
+         */
+        async function login() {
+            const code = document.getElementById('code').value;
+            const password = document.getElementById('password').value;
+            if (!code) {
+                showStatus('Please enter the verification code.', true);
+                return;
+            }
+            showStatus('Logging in...');
+            
+            const body = { code: code };
+            if (password) {
+                body.password = password;
+            }
+
+            const data = await apiCall('/api/login', 'POST', body);
+
+            if (data && data.success) {
+                showStatus('Login successful!');
+                loginSection.classList.add('hidden');
+                filesSection.classList.remove('hidden');
+                // Reset login form for next time
+                phoneStep.style.display = 'block';
+                codeStep.classList.add('hidden');
+                passwordStep.classList.add('hidden');
+                document.getElementById('code').value = '';
+                document.getElementById('password').value = '';
+                // Load files and profile
+                await getFiles();
+                await loadProfileInfo();
+            } else if (data && data.message === '2FA_REQUIRED') {
+                showStatus('2FA Password Required. Please enter it and click Login again.', false);
+                passwordStep.classList.remove('hidden');
+            } else {
+                // Other errors handled by apiCall, but we can reset status
+                if (!statusDiv.textContent) {
+                     showStatus('Login failed. Please check the code.', true);
+                }
+            }
+        }
+        
+        /**
+         * Logs the user out.
+         */
+        async function logout() {
+            showStatus('Logging out...');
+            if (!confirm('Are you sure you want to log out?')) {
+                showStatus(''); // Clear status if cancelled
+                return;
+            }
+            
+            const data = await apiCall('/api/logout', 'POST'); 
+            
+            if (data && data.success) {
+                showStatus('Logged out successfully.');
+                filesSection.classList.add('hidden');
+                loginSection.classList.remove('hidden');
+                phoneStep.style.display = 'block';
+                codeStep.classList.add('hidden');
+                passwordStep.classList.add('hidden');
+                profileArea.classList.add('hidden'); 
+                
+                document.getElementById('phone').value = '';
+                document.getElementById('code').value = '';
+                document.getElementById('password').value = '';
+                document.getElementById('search-input').value = '';
+                
+                fileListImages.innerHTML = '';
+                fileListDocuments.innerHTML = '';
+                fileListAudio.innerHTML = '';
+                fileListVideo.innerHTML = '';
+                fileListCompressed.innerHTML = '';
+                fileListOther.innerHTML = '';
+            } else {
+                 showStatus(`Logout failed: ${data ? data.message : 'Unknown error'}`, true);
+            }
+        }
+
+        /**
+         * Creates an HTML card element for a file.
+         */
+        function createFileCard(file) {
+            const downloadUrl = `/api/download/${file.id}`;
+            const card = document.createElement('div');
+            card.className = 'bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-lg transition group relative';
+            let contentHtml = '';
+
+            if (file.type === 'image') {
+                const thumbnailUrl = `/api/thumbnail/${file.id}`;
+                contentHtml = `<a href="${downloadUrl}" target="_blank" class="block"><div class="aspect-square bg-gray-100 flex items-center justify-center overflow-hidden"><img src="${thumbnailUrl}" alt="${file.name}" class="w-full h-full object-cover transition-transform group-hover:scale-105" onerror="this.parentElement.innerHTML = '<i data-feather=\\'alert-circle\\' class=\\'w-12 h-12 text-gray-300\\'></i>'; feather.replace();"></div></a><div class="p-3 border-t border-gray-100"><a href="${downloadUrl}" target="_blank" class="block font-medium text-gray-800 text-sm truncate hover:text-blue-600" title="${file.name}">${file.name}</a><p class="text-xs text-gray-500 mt-1">${new Date(file.date).toLocaleDateString()}</p></div>`;
+            } else {
+                let iconName = 'file'; // More generic default
+                const nameLower = file.name.toLowerCase();
+                if (file.type === 'video') iconName = 'film';
+                else if (file.type === 'audio') iconName = 'music';
+                else if (file.type === 'compressed') iconName = 'archive';
+                else if (file.type === 'document') { // Specific document types
+                    if (nameLower.includes('.pdf')) iconName = 'book-open';
+                    else if (nameLower.includes('.doc') || nameLower.includes('.docx')) iconName = 'file-text';
+                    else if (nameLower.includes('.xls') || nameLower.includes('.xlsx') || nameLower.includes('.csv')) iconName = 'bar-chart-2';
+                    else if (nameLower.includes('.ppt') || nameLower.includes('.pptx')) iconName = 'trello';
+                    else iconName = 'file-text'; // Default doc icon
+                }
+                else if (file.type === 'other' && (nameLower.includes('.html') || nameLower.includes('.css') || nameLower.includes('.js') || nameLower.includes('.py') || nameLower.includes('.java') || nameLower.includes('.c') || nameLower.includes('.cpp'))) iconName = 'code';
+
+                contentHtml = `<a href="${downloadUrl}" target="_blank" class="p-4 flex flex-col items-center text-center"><div class="w-16 h-16 bg-gradient-to-br from-blue-50 to-indigo-100 rounded-full flex items-center justify-center mb-3 shadow-sm"><i data-feather="${iconName}" class="w-8 h-8 text-blue-600"></i></div><h3 class="font-medium text-gray-800 text-sm truncate w-full hover:text-blue-600" title="${file.name}">${file.name}</h3><p class="text-xs text-gray-500 mt-1">${new Date(file.date).toLocaleDateString()}</p></a>`;
+            }
+            card.innerHTML = contentHtml;
+            card.querySelectorAll('[data-feather]').forEach(el => feather.replace({ 'stroke-width': 1.5 }));
+            return card;
+        }
+        
+        /**
+         * Fetches the file lists from the backend and populates the UI.
+         */
+        async function getFiles() {
+            showStatus('Loading files...');
+            fileListImages.innerHTML = '';
+            fileListDocuments.innerHTML = '';
+            fileListAudio.innerHTML = '';
+            fileListVideo.innerHTML = '';
+            fileListCompressed.innerHTML = '';
+            fileListOther.innerHTML = '';
+
+            const searchTerm = document.getElementById('search-input').value;
+            const apiUrl = searchTerm ? `/api/files?search=${encodeURIComponent(searchTerm)}` : '/api/files';
+            
+            // Use apiCall wrapper
+            const data = await apiCall(apiUrl); 
+
+            if (!data || data.error) {
+                 if (data && data.error === 'Not logged in') { 
+                     showStatus('Session expired or invalid. Please log in again.', true); 
+                     filesSection.classList.add('hidden'); 
+                     loginSection.classList.remove('hidden'); 
+                 }
+                 else { 
+                     // Error already shown by apiCall
+                     if (!statusDiv.textContent) showStatus(`Error loading files: ${data ? data.error : 'Unknown error'}`, true); 
+                 }
+                 return;
+            }
+            showStatus('');
+
+            data.images.forEach(file => { fileListImages.appendChild(createFileCard(file)); });
+            data.documents.forEach(file => { fileListDocuments.appendChild(createFileCard(file)); });
+            data.audio.forEach(file => { fileListAudio.appendChild(createFileCard(file)); });
+            data.video.forEach(file => { fileListVideo.appendChild(createFileCard(file)); });
+            data.compressed.forEach(file => { fileListCompressed.appendChild(createFileCard(file)); });
+            data.other.forEach(file => { fileListOther.appendChild(createFileCard(file)); });
+
+            const emptyMsgClass = 'text-gray-500 p-4 col-span-full text-center';
+            if (data.images.length === 0) fileListImages.innerHTML = `<p class="${emptyMsgClass}">No images found.</p>`;
+            if (data.documents.length === 0) fileListDocuments.innerHTML = `<p class="${emptyMsgClass}">No documents found.</p>`;
+            if (data.audio.length === 0) fileListAudio.innerHTML = `<p class="${emptyMsgClass}">No audio files found.</p>`;
+            if (data.video.length === 0) fileListVideo.innerHTML = `<p class="${emptyMsgClass}">No video files found.</p>`;
+            if (data.compressed.length === 0) fileListCompressed.innerHTML = `<p class="${emptyMsgClass}">No compressed files found.</p>`;
+            if (data.other.length === 0) fileListOther.innerHTML = `<p class="${emptyMsgClass}">No other files found.</p>`;
+
+            feather.replace();
+
+            let activeTab = 'images';
+            if (searchTerm) { 
+                 if (data.images.length > 0) activeTab = 'images';
+                 else if (data.video.length > 0) activeTab = 'video';
+                 else if (data.audio.length > 0) activeTab = 'audio';
+                 else if (data.documents.length > 0) activeTab = 'documents';
+                 else if (data.compressed.length > 0) activeTab = 'compressed';
+                 else if (data.other.length > 0) activeTab = 'other';
+                 else {
+                    showStatus(`No files found matching "${searchTerm}".`);
+                    activeTab = document.querySelector('.tab-button.active')?.getAttribute('onclick').match(/'([^']+)'/)[1] || 'images';
+                 }
+            } else { 
+                 if (data.images.length > 0) activeTab = 'images';
+                 else if (data.video.length > 0) activeTab = 'video';
+                 else if (data.audio.length > 0) activeTab = 'audio';
+                 else if (data.documents.length > 0) activeTab = 'documents';
+                 else if (data.compressed.length > 0) activeTab = 'compressed';
+                 else if (data.other.length > 0) activeTab = 'other';
+            }
+            openTab(activeTab);
+        }
+
+        /**
+         * Handles file upload selection.
+         */
+        async function uploadFile() {
+            const fileInput = document.getElementById('file-input');
+            const file = fileInput.files[0];
+            if (!file) return;
+
+            showStatus(`Uploading ${file.name}...`);
+            const formData = new FormData();
+            formData.append('file', file);
+
+            // We can't use apiCall for FormData, so use fetch directly
+            try {
+                const response = await fetch('/api/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    showStatus('File uploaded successfully! Refreshing list...');
+                    await getFiles(); // Refresh the file list
+                } else {
+                    showStatus(`Upload failed: ${data.message}`, true);
+                }
+            } catch (error) {
+                showStatus(`Upload error: ${error.message}`, true);
+            }
+            // Clear the file input so you can upload the same file again
+            fileInput.value = '';
+        }
+        
+        /**
+         * Switches the visible file tab.
+         * @param {string} tabName - The name of the tab to open.
+         */
+        function openTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.add('hidden');
+            });
+            document.querySelectorAll('.tab-button').forEach(button => {
+                button.classList.remove('active');
+            });
+            document.getElementById(tabName).classList.remove('hidden');
+            document.querySelector(`.tab-button[onclick="openTab('${tabName}')"]`).classList.add('active');
+        }
+
+        /**
+         * Runs getFiles() when search button is clicked.
+         */
+        function performSearch() {
+            getFiles();
+        }
+
+        /**
+         * Runs getFiles() when Enter is pressed in search box.
+         * @param {KeyboardEvent} event
+         */
+        function handleSearchEnter(event) {
+            if (event.key === 'Enter') {
+                getFiles();
+            }
+        }
+
+        // Make sure Feather Icons are initiated on load
+        window.addEventListener('load', () => feather.replace());
+        
+        
+        // --- !!! Application Entry Point !!! ---
+        // This function will run when the page loads to check
+        // if the user is logged in and show the correct section.
+        async function checkLoginStatus() {
+            // This will try to get files.
+            // Based on the code in getFiles(), it will show the
+            // login screen if you're not logged in.
+            await getFiles();
+
+            // Check if the login section is still hidden.
+            // If it is, it means we are logged in.
+            if (loginSection.classList.contains('hidden')) {
+                await loadProfileInfo(); // Load profile pic/name
+                filesSection.classList.remove('hidden'); // Show files
+            }
+
+            // Finally, hide the "Loading..." message
+            loadingDiv.classList.add('hidden');
+        }
+
+        // Run our new function when the page loads
+        document.addEventListener('DOMContentLoaded', checkLoginStatus);
+
+    </script>
+</body>
+</html>

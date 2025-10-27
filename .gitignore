@@ -1,0 +1,9 @@
+# Session file (if it exists)
+my_cloud.session
+
+# Uploads folder
+uploads/
+
+# Python cache
+__pycache__/
+*.pyc
