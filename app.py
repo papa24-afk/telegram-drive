@@ -8,6 +8,8 @@ from telethon import TelegramClient
 from telethon.errors import SessionPasswordNeededError
 # Import StringSession to save sessions as text (in the cookie)
 from telethon.sessions import StringSession
+# --- FIX 1: Add the ASGI wrapper import ---
+from asgiref.wsgi import WsgiToAsgi
 
 # --- 1. CONFIGURATION ---
 API_ID = 22961414
@@ -15,9 +17,9 @@ API_HASH = 'c9222d33aea71740de812a2b7dc3226d'
 # SESSION_FILE is no longer needed
 
 app = Flask(__name__)
-# A secret key is REQUIRED for Flask sessions (browser cookies)
-# Change this to your own long, random string
-app.secret_key = 'a-very-strong-and-random-secret-key-goes-here'
+# --- FIX 2: Use an Environment Variable for the secret key ---
+# This is more secure for a public app.
+app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'a-default-fallback-key-for-local-dev')
 
 os.makedirs('uploads', exist_ok=True)
 # login_data and client_lock are no longer needed
@@ -275,6 +277,9 @@ async def upload_file():
         if temp_path and os.path.exists(temp_path): os.remove(temp_path)
         if client.is_connected(): await client.disconnect()
         return jsonify({"success": False, "message": str(e)}), 500
+
+# --- FIX 3: Wrap the app in the ASGI wrapper ---
+asgi_app = WsgiToAsgi(app)
 
 # --- 5. RUN THE APP ---
 if __name__ == '__main__':
