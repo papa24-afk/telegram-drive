@@ -421,14 +421,5 @@ if __name__ == '__main__':
     # debug=True automatically reloads on code changes (use False for production)
     # The port Render uses is often different, but 5000 is standard for local Flask dev
     app.run(host='0.0.0.0', debug=True, port=5000)
-```
-
-### Next Steps
-
-1.  **Push this code to GitHub:**
-    ```bash
-    git add app.py
-    git commit -m "Add MORE detailed logging to login"
-    git push origin master
     
 
