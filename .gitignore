@@ -1,9 +1,39 @@
-# Session file (if it exists)
-my_cloud.session
-
-# Uploads folder
-uploads/
-
-# Python cache
+# Python cache files
 __pycache__/
 *.pyc
+*.pyo
+
+# Virtual environment folders
+.venv/
+venv/
+env/
+ENV/
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# IDE/Editor specific files
+.idea/
+.vscode/
+*.swp
+
+# Local session file (from testing)
+my_cloud.session
+
+# Temporary uploads folder contents
+uploads/*
+!uploads/.keep # Add a .keep file inside uploads if you need the folder itself
+
+# Docker ignore file
+.dockerignore
+
+# Sensitive files (Ensure FLASK_SECRET_KEY is only set via environment variables)
+# If you had any files with secrets, list them here
+# Example: .env
+
+# Build artifacts (if any)
+dist/
+build/
+*.egg-info/
+

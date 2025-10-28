@@ -19,27 +19,31 @@ API_HASH = 'c9222d33aea71740de812a2b7dc3226d'
 
 app = Flask(__name__)
 # Use an Environment Variable for the secret key
-# Ensure you set FLASK_SECRET_KEY in Render's environment variables
-app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'a-default-fallback-key-for-local-dev')
+# Ensure you set FLASK_SECRET_KEY in GCP Cloud Run environment variables
+app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'a-default-fallback-key-should-be-set-in-env')
 
 # Create uploads directory if it doesn't exist
+# Note: On Cloud Run, this directory is temporary (ephemeral)
 os.makedirs('uploads', exist_ok=True)
 
 # --- 2. WEB PAGE ROUTE ---
 @app.route('/')
 def home():
+    # Renders the index.html file from the 'templates' folder
     return render_template('index.html')
 
 # --- 3. HELPER FUNCTION ---
 def get_client():
-    """Creates a Telethon client from the user's permanent browser session cookie."""
+    """Creates a Telethon client from the user's browser session cookie."""
     session_string = session.get('telethon_session')
+    # If session_string is None, StringSession handles it gracefully
     client = TelegramClient(StringSession(session_string), API_ID, API_HASH, loop=None)
     return client
 
 # --- 4. API ROUTES ---
 @app.route('/api/is_logged_in', methods=['GET'])
 async def is_logged_in():
+    """Checks if a valid session string exists in the user's cookie."""
     return jsonify({"logged_in": 'telethon_session' in session})
 
 @app.route('/api/send_code', methods=['POST'])
@@ -51,12 +55,9 @@ async def send_code():
         phone = request.json['phone']
         print(f"--- Sending code to {phone} ---", flush=True)
         result = await client.send_code_request(phone)
-
-        # Store the hash, phone number, AND the temporary session string itself
         session['temp_session_hash'] = result.phone_code_hash
         session['phone_number'] = phone
-        session['temp_telethon_session'] = client.session.save() # <-- Store temp session state
-
+        session['temp_telethon_session'] = client.session.save() # Store temp session state
         print(f"--- Stored temp_session_hash: {result.phone_code_hash} ---", flush=True)
         print(f"--- Stored temp_telethon_session string ---", flush=True)
         return jsonify({"success": True, "message": "Code sent!"})
@@ -75,81 +76,60 @@ async def login():
     client = None
     print("\n--- Attempting Login ---", flush=True)
     try:
-        # Retrieve all temporary data
         phone_code_hash = session.get('temp_session_hash')
         phone_number = session.get('phone_number')
-        temp_session_string = session.get('temp_telethon_session') # <-- Get temp session state
-
+        temp_session_string = session.get('temp_telethon_session') # Get temp session state
         print(f"Retrieved from session - Phone Number: {phone_number}", flush=True)
         print(f"Retrieved from session - Phone Code Hash: {phone_code_hash}", flush=True)
         print(f"Retrieved from session - Temp Session String: {'Present' if temp_session_string else 'MISSING!'}", flush=True)
-
-        if not phone_code_hash or not phone_number or not temp_session_string: # <-- Check temp session too
+        if not phone_code_hash or not phone_number or not temp_session_string:
             print("!!! LOGIN FAILED: Temporary session data missing.", flush=True)
             return jsonify({"success": False, "message": "Session expired or invalid. Please request code again."}), 400
-
-        # Load client using the temporary session string
-        client = TelegramClient(StringSession(temp_session_string), API_ID, API_HASH, loop=None) # <-- Use temp session
+        client = TelegramClient(StringSession(temp_session_string), API_ID, API_HASH, loop=None) # Use temp session
         print("Connecting client for login using temp session...", flush=True)
         await client.connect()
         print("Client connected.", flush=True)
-
         code = request.json['code']
         password = request.json.get('password')
         print(f"Code entered: {code}", flush=True)
         print(f"Password provided: {'Yes' if password else 'No'}", flush=True)
-
         print("Attempting initial sign in...", flush=True)
-        # Sign in should work now because the client state matches the code request
         await client.sign_in(
             phone=phone_number,
             code=code,
             phone_code_hash=phone_code_hash
         )
         print("Initial sign in successful (2FA not needed). Saving permanent session...", flush=True)
-
-        # Save the *now permanent* session string
         session['telethon_session'] = client.session.save()
-        # Clean up all temporary keys
         session.pop('temp_session_hash', None)
         session.pop('phone_number', None)
         session.pop('temp_telethon_session', None)
         print("Permanent session saved, temporary data cleared.", flush=True)
         return jsonify({"success": True, "message": "Login successful!"})
-
     except SessionPasswordNeededError:
         print("--- 2FA Password needed ---", flush=True)
         password = request.json.get('password')
         if not password:
             print("Password not provided in request, returning 2FA_REQUIRED.", flush=True)
-            # IMPORTANT: Do *not* clear temp data here, it's needed for the 2FA attempt
             return jsonify({"success": False, "message": "2FA_REQUIRED"})
-
         try:
-            # Client is already connected and has the necessary state
             print("Attempting 2FA sign in with provided password...", flush=True)
             await client.sign_in(password=password)
             print("2FA sign in successful. Saving permanent session...", flush=True)
-
-            # Save the permanent session
             session['telethon_session'] = client.session.save()
-            # Clean up temp data
             session.pop('temp_session_hash', None)
             session.pop('phone_number', None)
             session.pop('temp_telethon_session', None)
             print("Permanent session saved after 2FA, temporary data cleared.", flush=True)
             return jsonify({"success": True, "message": "Login successful!"})
-
         except Exception as e_2fa:
             print(f"!!! 2FA LOGIN FAILED: {str(e_2fa)}", flush=True)
             traceback.print_exc(file=sys.stderr)
             return jsonify({"success": False, "message": f"Login failed (2FA): {str(e_2fa)}"}), 500
-
     except Exception as e_main:
         print(f"!!! MAIN LOGIN FAILED: {str(e_main)}", flush=True)
         traceback.print_exc(file=sys.stderr)
         return jsonify({"success": False, "message": f"Login failed: {str(e_main)}"}), 500
-
     finally:
         if client and client.is_connected():
             print("Disconnecting login client.", flush=True)
@@ -170,9 +150,6 @@ async def logout():
     except Exception as e:
         print(f"!!! LOGOUT FAILED: {str(e)}", flush=True)
         return jsonify({"success": False, "message": str(e)}), 500
-
-# --- (Rest of the API routes: /api/me, /api/thumbnail, /api/files, /api/download, /api/upload remain unchanged) ---
-# --- (But ensure they also have try...finally blocks for disconnection) ---
 
 @app.route('/api/me')
 async def get_me():
@@ -320,21 +297,8 @@ async def upload_file():
             await client.disconnect()
 
 # Wrap the Flask app (WSGI) so it can be served by an ASGI server (like Uvicorn)
+# Gunicorn will look for this 'asgi_app' object based on the start command
 asgi_app = WsgiToAsgi(app)
 
-# --- 5. RUN THE APP (for local development) ---
-if __name__ == '__main__':
-    # Use host='0.0.0.0' to make it accessible on your local network
-    # debug=True automatically reloads on code changes (use False for production)
-    app.run(host='0.0.0.0', debug=True, port=5000)
-```
-
-### Next Steps
-
-1.  **Push this code to GitHub:**
-    ```bash
-    git add app.py
-    git commit -m "Add MORE detailed logging to login"
-    git push origin master
-    
+# The if __name__ == '__main__': block is removed as Gunicorn/Cloud Run doesn't use it.
 
