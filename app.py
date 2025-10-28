@@ -327,3 +327,14 @@ if __name__ == '__main__':
     # Use host='0.0.0.0' to make it accessible on your local network
     # debug=True automatically reloads on code changes (use False for production)
     app.run(host='0.0.0.0', debug=True, port=5000)
+```
+
+### Next Steps
+
+1.  **Push this code to GitHub:**
+    ```bash
+    git add app.py
+    git commit -m "Add MORE detailed logging to login"
+    git push origin master
+    
+
